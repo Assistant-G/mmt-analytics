@@ -26,11 +26,11 @@ export function Header({ onMenuClick }: HeaderProps) {
     <header className="header">
       <div className="header-left">
         <button className="menu-button" onClick={onMenuClick}>
-          <Menu size={20} />
+          <Menu size={18} />
         </button>
         
         <form onSubmit={handleSearch} className="search-container">
-          <Search className="search-icon" size={18} />
+          <Search className="search-icon" size={16} />
           <Input
             type="text"
             placeholder="Search wallet address (0x...)"
@@ -48,8 +48,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           rel="noopener noreferrer"
           className="external-link"
         >
-          <span>Open MMT Finance</span>
-          <ExternalLink size={14} />
+          <span>MMT Finance</span>
+          <ExternalLink size={13} />
         </a>
         
         {isConnected ? (
@@ -81,9 +81,10 @@ export function Header({ onMenuClick }: HeaderProps) {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 0 24px;
-          background: rgba(10, 10, 15, 0.8);
-          backdrop-filter: blur(20px);
+          padding: 0 28px;
+          background: rgba(12, 13, 18, 0.7);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
           border-bottom: 1px solid rgba(255, 255, 255, 0.04);
           position: sticky;
           top: 0;
@@ -93,21 +94,21 @@ export function Header({ onMenuClick }: HeaderProps) {
         .header-left {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 14px;
           flex: 1;
-          max-width: 500px;
+          max-width: 480px;
         }
 
         .menu-button {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 40px;
-          height: 40px;
+          width: 36px;
+          height: 36px;
           border: none;
           background: rgba(255, 255, 255, 0.03);
-          border-radius: 10px;
-          color: #A0A0B0;
+          border-radius: 9px;
+          color: #8b8fa3;
           cursor: pointer;
           transition: all 0.2s;
         }
@@ -120,86 +121,88 @@ export function Header({ onMenuClick }: HeaderProps) {
         .search-container {
           position: relative;
           flex: 1;
-          max-width: 400px;
+          max-width: 380px;
         }
 
         .search-icon {
           position: absolute;
-          left: 14px;
+          left: 13px;
           top: 50%;
           transform: translateY(-50%);
-          color: #606070;
+          color: #555a6e;
           pointer-events: none;
         }
 
         .search-input {
           width: 100%;
-          height: 44px;
-          padding-left: 44px;
+          height: 38px;
+          padding-left: 40px;
           background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.06);
-          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
           color: #E8E8EC;
-          font-size: 14px;
+          font-size: 13px;
           font-family: 'JetBrains Mono', monospace;
-          transition: all 0.2s;
+          transition: all 0.25s ease;
         }
 
         .search-input::placeholder {
-          color: #606070;
-          font-family: 'Sora', sans-serif;
+          color: #555a6e;
+          font-family: 'Inter', sans-serif;
         }
 
         .search-input:focus {
           outline: none;
           background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(0, 212, 170, 0.3);
-          box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+          border-color: rgba(0, 212, 170, 0.25);
+          box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.06);
         }
 
         .header-right {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
         }
 
         .external-link {
           display: flex;
           align-items: center;
           gap: 6px;
-          padding: 10px 16px;
-          color: #A0A0B0;
+          padding: 8px 14px;
+          color: #8b8fa3;
           text-decoration: none;
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 500;
-          border-radius: 10px;
+          border-radius: 9px;
           transition: all 0.2s;
         }
 
         .external-link:hover {
           color: #00D4AA;
-          background: rgba(0, 212, 170, 0.08);
+          background: rgba(0, 212, 170, 0.06);
         }
 
         .wallet-button {
-          height: 44px;
-          padding: 0 20px;
+          height: 38px;
+          padding: 0 18px;
           font-weight: 600;
-          border-radius: 12px;
+          font-size: 13px;
+          border-radius: 10px;
           background: linear-gradient(135deg, #00D4AA 0%, #00A3FF 100%);
           border: none;
           color: #0A0A0F;
-          transition: all 0.3s;
+          transition: all 0.3s ease;
+          letter-spacing: -0.01em;
         }
 
         .wallet-button:hover {
           transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(0, 212, 170, 0.25);
+          box-shadow: 0 6px 20px rgba(0, 212, 170, 0.25);
         }
 
         .wallet-button.connected {
           background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.07);
           color: #E8E8EC;
         }
 
@@ -207,18 +210,23 @@ export function Header({ onMenuClick }: HeaderProps) {
           background: rgba(255, 255, 255, 0.06);
           transform: none;
           box-shadow: none;
+          border-color: rgba(255, 255, 255, 0.12);
         }
 
         .wallet-indicator {
-          width: 8px;
-          height: 8px;
+          width: 7px;
+          height: 7px;
           border-radius: 50%;
           background: #00D4AA;
-          margin-right: 10px;
-          animation: pulse-glow 2s infinite;
+          margin-right: 9px;
+          box-shadow: 0 0 6px rgba(0, 212, 170, 0.5);
         }
 
         @media (max-width: 768px) {
+          .header {
+            padding: 0 16px;
+          }
+
           .external-link span {
             display: none;
           }
