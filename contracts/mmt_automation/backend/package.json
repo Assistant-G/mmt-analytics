@@ -1,0 +1,26 @@
+{
+  "name": "mmt-vault-backend",
+  "version": "1.0.0",
+  "description": "MMT Cycling Vault & LP Registry Backend Service",
+  "type": "module",
+  "scripts": {
+    "start": "tsx index.ts",
+    "start:vault": "tsx vault-service.ts",
+    "start:lp-registry": "tsx lp-registry-automation.ts",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "@mmt-finance/clmm-sdk": "^1.3.25",
+    "@mysten/sui": "^1.16.0",
+    "bn.js": "^5.2.1",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.1.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

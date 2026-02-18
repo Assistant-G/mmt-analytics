@@ -1,0 +1,10 @@
+[package]
+name = "mmt_automation"
+version = "1.0.0"
+edition = "2024.beta"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.62.1" }
+
+[addresses]
+mmt_automation = "0x0"
