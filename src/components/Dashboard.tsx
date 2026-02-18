@@ -2,11 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Activity, 
-  Percent,
-  ArrowUpRight,
+  TrendingDown,
   Wallet,
   ExternalLink
 } from 'lucide-react';
@@ -16,8 +12,6 @@ import {
   YAxis, 
   Tooltip, 
   ResponsiveContainer,
-  BarChart,
-  Bar,
   Area,
   AreaChart
 } from 'recharts';
@@ -37,7 +31,7 @@ export function Dashboard() {
     staleTime: 60000,
   });
 
-  const { data: positions, isLoading: positionsLoading } = useQuery({
+  const { data: positions } = useQuery({
     queryKey: ['positions', address],
     queryFn: () => fetchPositions(address!),
     enabled: !!address,

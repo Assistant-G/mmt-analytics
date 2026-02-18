@@ -5,8 +5,7 @@ import {
   Medal, 
   ExternalLink,
   Copy,
-  Crown,
-  ChevronDown
+  Crown
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';

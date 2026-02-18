@@ -10,6 +10,6 @@ interface SidebarProps {
   onToggle?: () => void;
 }
 
-export function Sidebar({ isOpen, currentView, onViewChange, onToggle }: SidebarProps) {
+export function Sidebar(_props: SidebarProps) {
   return null;
 }

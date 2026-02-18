@@ -7,25 +7,18 @@ import {
   TrendingDown,
   DollarSign,
   Target,
-  Activity,
   AlertCircle,
   CheckCircle,
   RefreshCw,
-  Download,
   Coins,
   Minus,
   Loader2,
-  Plus,
-  Timer,
-  Infinity,
-  StopCircle
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import {
-  AreaChart,
   Area,
   XAxis,
   YAxis,
@@ -36,11 +29,9 @@ import {
 } from 'recharts';
 import { toast } from 'sonner';
 import { useWallet } from '@/contexts/WalletContext';
-import { useAutoClose } from '@/contexts/AutoCloseContext';
 import {
   fetchPositions,
   generatePriceHistory,
-  generatePositionHistory,
   buildCollectFeesTransaction,
   buildRemoveLiquidityTransaction
 } from '@/services/mmtService';
@@ -235,34 +226,11 @@ interface PositionCardProps {
 }
 
 function PositionCard({ position, walletAddress, isSelected, onSelect, onRefresh }: PositionCardProps) {
-  const { pool, isInRange, pnl, pnlPercent, totalValueUsd, uncollectedFeesUsd, apr, rangeUtilization } = position;
+  const { pool, isInRange, pnl, totalValueUsd, uncollectedFeesUsd, apr, rangeUtilization } = position;
   const [actionLoading, setActionLoading] = useState<'claim' | 'remove' | null>(null);
   const [isAddLiquidityOpen, setIsAddLiquidityOpen] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
 
   const { mutateAsync: signAndExecute } = useSignAndExecuteTransaction();
-  const { getTimeRemaining, getRemainingRepeats, stopInfiniteMode, isClosing, removePosition } = useAutoClose();
-
-  const remainingRepeats = getRemainingRepeats(position.id);
-  const isInfiniteMode = remainingRepeats === 'infinite';
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const remaining = getTimeRemaining(position.id);
-      setCountdown(remaining);
-    };
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [position.id, getTimeRemaining]);
-
-  const formatCountdown = (ms: number): string => {
-    const totalSeconds = Math.ceil(ms / 1000);
-    if (totalSeconds < 60) return `${totalSeconds}s`;
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}m ${seconds}s`;
-  };
 
   const handleClaimFees = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -382,7 +350,6 @@ function PositionCard({ position, walletAddress, isSelected, onSelect, onRefresh
 // Position Detail Component
 function PositionDetail({ position, onClose }: { position: Position; onClose: () => void }) {
   const priceHistory = generatePriceHistory(position.pool.priceTokenA, 30);
-  const positionHistory = generatePositionHistory(position, 30);
 
   return (
     <div className="detail-overlay" onClick={onClose}>
