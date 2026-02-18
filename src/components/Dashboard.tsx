@@ -5,11 +5,11 @@ import {
   TrendingDown, 
   DollarSign, 
   Activity, 
-  Users,
+  Percent,
   ArrowUpRight,
-  Sparkles
+  Wallet,
+  ExternalLink
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
   XAxis, 
@@ -18,13 +18,12 @@ import {
   ResponsiveContainer,
   BarChart,
   Bar,
-  ComposedChart,
-  Line,
-  Area
+  Area,
+  AreaChart
 } from 'recharts';
 import { useWallet } from '@/contexts/WalletContext';
 import { fetchPoolsData, fetchPositions, generateVolumeHistory } from '@/services/mmtService';
-import { formatCurrency } from '@/utils';
+import { formatCurrency, getTokenLogo } from '@/utils';
 import { PortfolioSummary } from './PortfolioSummary';
 import { getAllVaultPerformances } from '@/services/performanceService';
 
@@ -53,485 +52,566 @@ export function Dashboard() {
   const userTotalValue = positions?.reduce((sum, p) => sum + p.totalValueUsd, 0) || 0;
   const userTotalPnl = positions?.reduce((sum, p) => sum + p.pnl, 0) || 0;
   const userTotalFees = positions?.reduce((sum, p) => sum + p.uncollectedFeesUsd, 0) || 0;
-  const userAvgApr = positions?.length 
-    ? positions.reduce((sum, p) => sum + p.apr, 0) / positions.length 
-    : 0;
+
+  const topPools = pools?.sort((a, b) => b.tvlUsd - a.tvlUsd).slice(0, 6) || [];
 
   return (
     <div className="dashboard">
-      <div className="dashboard-header">
-        <div className="header-content">
-          <h1>MMT Finance Analytics</h1>
-          <p>Track LP positions and discover opportunities on Sui's leading CLMM DEX</p>
-        </div>
-        <div className="header-badge">
-          <Sparkles size={14} />
-          <span>Live Data</span>
-        </div>
+      {/* Protocol Stats */}
+      <div className="stats-row">
+        <StatCard
+          label="Total Value Locked"
+          value={formatCurrency(totalTvl, { compact: true })}
+          change={5.2}
+          loading={poolsLoading}
+        />
+        <StatCard
+          label="24h Volume"
+          value={formatCurrency(totalVolume24h, { compact: true })}
+          change={12.8}
+          loading={poolsLoading}
+        />
+        <StatCard
+          label="24h Fees"
+          value={formatCurrency(totalFees24h, { compact: true })}
+          change={8.4}
+          loading={poolsLoading}
+        />
+        <StatCard
+          label="Average APR"
+          value={`${avgApr.toFixed(1)}%`}
+          change={-2.1}
+          loading={poolsLoading}
+          valueColor="teal"
+        />
       </div>
 
-      {/* Protocol Stats */}
-      <section className="stats-section">
-        <h2 className="section-title">Protocol Overview</h2>
-        <div className="stats-grid">
-          <StatCard
-            title="Total Value Locked"
-            value={formatCurrency(totalTvl, { compact: true })}
-            change={5.2}
-            icon={<DollarSign size={20} />}
-            loading={poolsLoading}
-            gradient="primary"
-          />
-          <StatCard
-            title="24h Volume"
-            value={formatCurrency(totalVolume24h, { compact: true })}
-            change={12.8}
-            icon={<Activity size={20} />}
-            loading={poolsLoading}
-            gradient="secondary"
-          />
-          <StatCard
-            title="24h Fees"
-            value={formatCurrency(totalFees24h, { compact: true })}
-            change={8.4}
-            icon={<TrendingUp size={20} />}
-            loading={poolsLoading}
-            gradient="accent"
-          />
-          <StatCard
-            title="Average APR"
-            value={`${avgApr.toFixed(1)}%`}
-            change={-2.1}
-            icon={<Users size={20} />}
-            loading={poolsLoading}
-            gradient="info"
-          />
-        </div>
-      </section>
-
-      {/* User Portfolio Summary */}
-      {isConnected && positions && positions.length > 0 && userTotalValue > 0 && (
-        <section className="stats-section" style={{ animationDelay: '0.1s' }}>
-          <h2 className="section-title">Your Portfolio</h2>
-          <div className="stats-grid">
-            <StatCard
-              title="Total Position Value"
-              value={formatCurrency(userTotalValue, { compact: true })}
-              icon={<DollarSign size={20} />}
-              loading={positionsLoading}
-              gradient="primary"
-            />
-            <StatCard
-              title="Total PnL"
-              value={formatCurrency(Math.abs(userTotalPnl), { compact: true })}
-              change={userTotalPnl >= 0 ? (userTotalPnl / (userTotalValue - userTotalPnl)) * 100 : -(Math.abs(userTotalPnl) / (userTotalValue + Math.abs(userTotalPnl))) * 100}
-              icon={userTotalPnl >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
-              loading={positionsLoading}
-              gradient={userTotalPnl >= 0 ? 'success' : 'danger'}
-            />
-            <StatCard
-              title="Uncollected Fees"
-              value={formatCurrency(userTotalFees, { compact: true })}
-              icon={<ArrowUpRight size={20} />}
-              loading={positionsLoading}
-              gradient="accent"
-            />
-            <StatCard
-              title="Average APR"
-              value={`${userAvgApr.toFixed(1)}%`}
-              icon={<Activity size={20} />}
-              loading={positionsLoading}
-              gradient="info"
-            />
+      {/* Main Content Grid */}
+      <div className="content-grid">
+        {/* Volume Chart */}
+        <div className="chart-card">
+          <div className="chart-header">
+            <h3>Protocol Volume</h3>
+            <span className="chart-period">Last 30 days</span>
           </div>
-        </section>
-      )}
-
-      {/* Vault Performance Tracking */}
-      {isConnected && getAllVaultPerformances().length > 0 && (
-        <section className="stats-section">
-          <h2 className="section-title">Vault Performance Tracking</h2>
-          <PortfolioSummary />
-        </section>
-      )}
-
-      {/* Charts */}
-      <div className="charts-grid">
-        <Card className="chart-card glass-card">
-          <CardHeader className="chart-header">
-            <CardTitle className="chart-title">Protocol Volume & Fees</CardTitle>
-          </CardHeader>
-          <CardContent>
+          <div className="chart-container">
             <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={volumeData}>
+              <AreaChart data={volumeData}>
                 <defs>
                   <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00D4AA" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#00D4AA" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#14f4c9" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#14f4c9" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis 
                   dataKey="timestamp" 
                   tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  stroke="#3a3f52"
+                  stroke="#52525b"
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis 
-                  yAxisId="left"
                   tickFormatter={(val) => formatCurrency(val, { compact: true })}
-                  stroke="#3a3f52"
+                  stroke="#52525b"
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
-                />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  tickFormatter={(val) => formatCurrency(val, { compact: true })}
-                  stroke="#3a3f52"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
+                  width={60}
                 />
                 <Tooltip 
-                  contentStyle={{
-                    background: 'rgba(15, 17, 23, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '10px',
-                    padding: '10px 14px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                    fontSize: '12px',
-                  }}
-                  labelStyle={{ color: '#8b8fa3', marginBottom: '6px' }}
-                  itemStyle={{ color: '#e6e8ed', padding: '2px 0' }}
-                  labelFormatter={(val) => new Date(val).toLocaleDateString()}
-                  formatter={(value, name) => [
-                    formatCurrency(Number(value) || 0, { compact: true }),
-                    name === 'volume' ? 'Volume' : 'Fees'
-                  ]}
+                  content={<CustomTooltip />}
+                  cursor={{ stroke: '#27272a' }}
                 />
                 <Area
-                  yAxisId="left"
                   type="monotone"
                   dataKey="volume"
-                  stroke="#00D4AA"
+                  stroke="#14f4c9"
                   fill="url(#volumeGradient)"
-                  strokeWidth={1.5}
+                  strokeWidth={2}
                 />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="fees"
-                  stroke="#00A3FF"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </ComposedChart>
+              </AreaChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="chart-card glass-card">
-          <CardHeader className="chart-header">
-            <CardTitle className="chart-title">Top Pools by TVL</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart 
-                data={pools?.sort((a, b) => b.tvlUsd - a.tvlUsd).slice(0, 8).map(p => ({
-                  name: `${p.tokenA.symbol}/${p.tokenB.symbol}`,
-                  tvl: p.tvlUsd,
-                  apr: p.apr,
-                }))}
-                layout="vertical"
-              >
-                <XAxis 
-                  type="number" 
-                  tickFormatter={(val) => formatCurrency(val, { compact: true })}
-                  stroke="#3a3f52"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis 
-                  type="category" 
-                  dataKey="name" 
-                  width={85}
-                  stroke="#3a3f52"
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <Tooltip 
-                  contentStyle={{
-                    background: 'rgba(15, 17, 23, 0.95)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    borderRadius: '10px',
-                    padding: '10px 14px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                    fontSize: '12px',
-                  }}
-                  labelStyle={{ color: '#8b8fa3', marginBottom: '6px' }}
-                  itemStyle={{ color: '#e6e8ed', padding: '2px 0' }}
-                  formatter={(value, name) => [
-                    name === 'tvl' ? formatCurrency(Number(value) || 0, { compact: true }) : `${(Number(value) || 0).toFixed(1)}%`,
-                    name === 'tvl' ? 'TVL' : 'APR'
-                  ]}
-                />
-                <Bar 
-                  dataKey="tvl" 
-                  fill="url(#barGradient)" 
-                  radius={[0, 5, 5, 0]}
-                />
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#00D4AA" stopOpacity={0.8} />
-                    <stop offset="100%" stopColor="#00A3FF" stopOpacity={0.8} />
-                  </linearGradient>
-                </defs>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+        {/* Top Pools */}
+        <div className="pools-card">
+          <div className="pools-header">
+            <h3>Top Pools</h3>
+            <span className="pools-count">{pools?.length || 0} total</span>
+          </div>
+          <div className="pools-list">
+            {poolsLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="pool-item skeleton-row">
+                  <Skeleton className="h-8 w-8 rounded-full" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-16 ml-auto" />
+                </div>
+              ))
+            ) : (
+              topPools.map((pool, idx) => (
+                <div key={pool.id} className="pool-item">
+                  <span className="pool-rank">#{idx + 1}</span>
+                  <div className="pool-tokens">
+                    <img src={getTokenLogo(pool.tokenA.symbol)} alt="" className="token-icon" />
+                    <img src={getTokenLogo(pool.tokenB.symbol)} alt="" className="token-icon overlap" />
+                  </div>
+                  <div className="pool-info">
+                    <span className="pool-name">{pool.tokenA.symbol}/{pool.tokenB.symbol}</span>
+                    <span className="pool-tvl">{formatCurrency(pool.tvlUsd, { compact: true })}</span>
+                  </div>
+                  <span className="pool-apr">{pool.apr.toFixed(1)}%</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* User Portfolio Section */}
+      {isConnected ? (
+        positions && positions.length > 0 && userTotalValue > 0 ? (
+          <div className="portfolio-section">
+            <div className="section-header">
+              <Wallet size={20} />
+              <h2>Your Portfolio</h2>
+            </div>
+            
+            <div className="portfolio-stats">
+              <div className="portfolio-stat">
+                <span className="stat-label">Total Value</span>
+                <span className="stat-value">{formatCurrency(userTotalValue)}</span>
+              </div>
+              <div className="portfolio-stat">
+                <span className="stat-label">Total PnL</span>
+                <span className={`stat-value ${userTotalPnl >= 0 ? 'text-profit' : 'text-loss'}`}>
+                  {userTotalPnl >= 0 ? '+' : ''}{formatCurrency(userTotalPnl)}
+                </span>
+              </div>
+              <div className="portfolio-stat">
+                <span className="stat-label">Uncollected Fees</span>
+                <span className="stat-value text-profit">+{formatCurrency(userTotalFees)}</span>
+              </div>
+              <div className="portfolio-stat">
+                <span className="stat-label">Positions</span>
+                <span className="stat-value">{positions.length}</span>
+              </div>
+            </div>
+
+            {getAllVaultPerformances().length > 0 && (
+              <PortfolioSummary />
+            )}
+          </div>
+        ) : (
+          <div className="portfolio-section empty">
+            <div className="empty-portfolio">
+              <Wallet size={32} />
+              <h3>No Positions Found</h3>
+              <p>Start providing liquidity to see your portfolio here</p>
+              <a 
+                href="https://app.mmt.finance" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="cta-btn"
+              >
+                <span>Open MMT Finance</span>
+                <ExternalLink size={16} />
+              </a>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="connect-cta">
+          <div className="cta-content">
+            <Wallet size={28} />
+            <div className="cta-text">
+              <h3>Connect your wallet</h3>
+              <p>Track your LP positions and vault performance</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .dashboard {
           display: flex;
           flex-direction: column;
-          gap: 32px;
-          animation: fadeIn 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
-        }
-
-        .dashboard-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
           gap: 24px;
         }
 
-        .header-content h1 {
-          font-size: 28px;
-          font-weight: 800;
-          background: var(--gradient-primary);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          margin-bottom: 6px;
-          letter-spacing: -0.03em;
-        }
-
-        .header-content p {
-          color: #6b7084;
-          font-size: 14px;
-          max-width: 500px;
-          line-height: 1.5;
-        }
-
-        .header-badge {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          background: rgba(0, 212, 170, 0.06);
-          border: 1px solid rgba(0, 212, 170, 0.12);
-          border-radius: 20px;
-          color: #00D4AA;
-          font-size: 12px;
-          font-weight: 500;
-          white-space: nowrap;
-        }
-
-        .stats-section {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          animation: fadeInUp 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) backwards;
-        }
-
-        .section-title {
-          font-size: 16px;
-          font-weight: 600;
-          color: #e6e8ed;
-          letter-spacing: -0.01em;
-        }
-
-        .stats-grid {
+        /* Stats Row */
+        .stats-row {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 14px;
-        }
-
-        .charts-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
           gap: 16px;
-          animation: fadeInUp 0.6s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) 0.15s backwards;
         }
 
-        .chart-card {
-          background: rgba(255, 255, 255, 0.015) !important;
-          border: 1px solid rgba(255, 255, 255, 0.04) !important;
-          overflow: hidden;
-        }
-
-        .chart-header {
-          padding-bottom: 8px !important;
-        }
-
-        .chart-title {
-          font-size: 14px !important;
-          font-weight: 600 !important;
-          color: #e6e8ed !important;
-          letter-spacing: -0.01em;
-        }
-
-        @media (max-width: 1200px) {
-          .stats-grid {
+        @media (max-width: 1024px) {
+          .stats-row {
             grid-template-columns: repeat(2, 1fr);
           }
         }
 
-        @media (max-width: 900px) {
-          .charts-grid {
+        @media (max-width: 640px) {
+          .stats-row {
             grid-template-columns: 1fr;
           }
         }
 
-        @media (max-width: 600px) {
-          .stats-grid {
+        /* Content Grid */
+        .content-grid {
+          display: grid;
+          grid-template-columns: 1.5fr 1fr;
+          gap: 16px;
+        }
+
+        @media (max-width: 1024px) {
+          .content-grid {
             grid-template-columns: 1fr;
           }
-          
-          .dashboard-header {
-            flex-direction: column;
+        }
+
+        /* Chart Card */
+        .chart-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          padding: 24px;
+        }
+
+        .chart-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+        }
+
+        .chart-header h3 {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .chart-period {
+          font-size: 13px;
+          color: var(--text-muted);
+        }
+
+        .chart-container {
+          margin: 0 -8px;
+        }
+
+        /* Pools Card */
+        .pools-card {
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          padding: 24px;
+        }
+
+        .pools-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 20px;
+        }
+
+        .pools-header h3 {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .pools-count {
+          font-size: 13px;
+          color: var(--text-muted);
+        }
+
+        .pools-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .pool-item {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px;
+          border-radius: var(--radius-md);
+          transition: background var(--transition-fast);
+        }
+
+        .pool-item:hover {
+          background: var(--bg-hover);
+        }
+
+        .pool-item.skeleton-row {
+          gap: 8px;
+        }
+
+        .pool-rank {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-dim);
+          width: 24px;
+        }
+
+        .pool-tokens {
+          display: flex;
+        }
+
+        .pool-tokens .token-icon {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          border: 2px solid var(--bg-card);
+        }
+
+        .pool-tokens .token-icon.overlap {
+          margin-left: -10px;
+        }
+
+        .pool-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .pool-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .pool-tvl {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        .pool-apr {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--color-profit);
+          padding: 4px 10px;
+          background: var(--color-profit-bg);
+          border-radius: var(--radius-full);
+        }
+
+        /* Portfolio Section */
+        .portfolio-section {
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          padding: 24px;
+        }
+
+        .portfolio-section .section-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 20px;
+          padding-left: 0;
+          border-left: none;
+        }
+
+        .portfolio-section .section-header svg {
+          color: var(--accent-teal);
+        }
+
+        .portfolio-section .section-header h2 {
+          font-size: 16px;
+          font-weight: 600;
+        }
+
+        .portfolio-stats {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+          .portfolio-stats {
+            grid-template-columns: repeat(2, 1fr);
           }
-          
-          .header-content h1 {
-            font-size: 22px;
-          }
+        }
+
+        .portfolio-stat {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 16px;
+          background: var(--bg-base);
+          border-radius: var(--radius-md);
+        }
+
+        .portfolio-stat .stat-label {
+          font-size: 12px;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .portfolio-stat .stat-value {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        /* Empty Portfolio */
+        .portfolio-section.empty {
+          padding: 48px 24px;
+        }
+
+        .empty-portfolio {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          text-align: center;
+          gap: 12px;
+        }
+
+        .empty-portfolio svg {
+          color: var(--text-dim);
+        }
+
+        .empty-portfolio h3 {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .empty-portfolio p {
+          font-size: 14px;
+          color: var(--text-muted);
+        }
+
+        .cta-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 10px 20px;
+          background: var(--gradient-primary);
+          border-radius: var(--radius-md);
+          color: #09090b;
+          font-size: 14px;
+          font-weight: 600;
+          text-decoration: none;
+          transition: all var(--transition-base);
+        }
+
+        .cta-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-glow-teal);
+        }
+
+        /* Connect CTA */
+        .connect-cta {
+          background: linear-gradient(135deg, rgba(20, 244, 201, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%);
+          border: 1px solid rgba(20, 244, 201, 0.2);
+          border-radius: var(--radius-lg);
+          padding: 24px;
+        }
+
+        .cta-content {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .cta-content svg {
+          color: var(--accent-teal);
+        }
+
+        .cta-text h3 {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 4px;
+        }
+
+        .cta-text p {
+          font-size: 14px;
+          color: var(--text-muted);
         }
       `}</style>
     </div>
   );
 }
 
+// Stat Card Component
 interface StatCardProps {
-  title: string;
+  label: string;
   value: string;
   change?: number;
-  icon: React.ReactNode;
   loading?: boolean;
-  gradient?: 'primary' | 'secondary' | 'accent' | 'info' | 'success' | 'danger';
+  valueColor?: 'default' | 'teal';
 }
 
-function StatCard({ title, value, change, icon, loading, gradient = 'primary' }: StatCardProps) {
-  const gradientColors = {
-    primary: ['#00D4AA', '#00A3FF'],
-    secondary: ['#00A3FF', '#9D4EDD'],
-    accent: ['#FFE66D', '#FF6B6B'],
-    info: ['#6366F1', '#8B5CF6'],
-    success: ['#00D4AA', '#10B981'],
-    danger: ['#FF5C5C', '#F43F5E'],
-  };
-
-  const [color1, color2] = gradientColors[gradient];
-
+function StatCard({ label, value, change, loading, valueColor = 'default' }: StatCardProps) {
   return (
     <div className="stat-card">
-      <div className="stat-icon" style={{ background: `linear-gradient(135deg, ${color1}12, ${color2}12)`, color: color1 }}>
-        {icon}
+      <span className="stat-label">{label}</span>
+      {loading ? (
+        <Skeleton className="h-9 w-28" style={{ background: 'rgba(255,255,255,0.05)' }} />
+      ) : (
+        <>
+          <span 
+            className="stat-value" 
+            style={{ color: valueColor === 'teal' ? 'var(--accent-teal)' : undefined }}
+          >
+            {value}
+          </span>
+          {change !== undefined && (
+            <span className={`stat-change ${change >= 0 ? 'positive' : 'negative'}`}>
+              {change >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              {Math.abs(change).toFixed(1)}%
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Custom Tooltip
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+  
+  return (
+    <div className="chart-tooltip">
+      <div className="chart-tooltip-label">
+        {new Date(label).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: 'numeric'
+        })}
       </div>
-      <div className="stat-content">
-        <span className="stat-title">{title}</span>
-        {loading ? (
-          <Skeleton className="h-7 w-20 bg-white/5" />
-        ) : (
-          <div className="stat-value-row">
-            <span className="stat-value mono">{value}</span>
-            {change !== undefined && (
-              <span className={`stat-change ${change >= 0 ? 'positive' : 'negative'}`}>
-                {change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {Math.abs(change).toFixed(1)}%
-              </span>
-            )}
-          </div>
-        )}
+      <div className="chart-tooltip-item">
+        Volume: {formatCurrency(payload[0].value, { compact: true })}
       </div>
       <style>{`
-        .stat-card {
-          display: flex;
-          gap: 14px;
-          padding: 18px;
-          background: rgba(255, 255, 255, 0.018);
-          border: 1px solid rgba(255, 255, 255, 0.04);
-          border-radius: 14px;
-          transition: all 0.3s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+        .chart-tooltip {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-md);
+          padding: 12px 16px;
         }
-
-        .stat-card:hover {
-          background: rgba(255, 255, 255, 0.035);
-          border-color: rgba(255, 255, 255, 0.08);
-          transform: translateY(-1px);
-          box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-        }
-
-        .stat-icon {
-          width: 44px;
-          height: 44px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 11px;
-          flex-shrink: 0;
-        }
-
-        .stat-content {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-          min-width: 0;
-        }
-
-        .stat-title {
+        
+        .chart-tooltip-label {
           font-size: 12px;
-          color: #6b7084;
-          font-weight: 500;
+          color: var(--text-muted);
+          margin-bottom: 6px;
         }
-
-        .stat-value-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .stat-value {
-          font-size: 22px;
-          font-weight: 700;
-          color: #e6e8ed;
-          letter-spacing: -0.02em;
-        }
-
-        .stat-change {
-          display: inline-flex;
-          align-items: center;
-          gap: 3px;
-          font-size: 11px;
+        
+        .chart-tooltip-item {
+          font-size: 14px;
           font-weight: 600;
-          padding: 2px 6px;
-          border-radius: 5px;
-        }
-
-        .stat-change.positive {
-          color: #00D4AA;
-          background: rgba(0, 212, 170, 0.08);
-        }
-
-        .stat-change.negative {
-          color: #FF5C5C;
-          background: rgba(255, 92, 92, 0.08);
+          color: var(--text-primary);
         }
       `}</style>
     </div>

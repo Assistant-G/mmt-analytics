@@ -5,23 +5,17 @@ import {
   Search,
   Filter,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Plus,
   Star,
   ChevronDown,
-  Vault
+  Vault,
+  X
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { fetchPoolsData } from '@/services/mmtService';
 import { formatCurrency, getFeeLabel, getTokenLogo } from '@/utils';
 import { AddLiquidityModal } from './AddLiquidityModal';
@@ -45,6 +39,8 @@ export function PoolDiscovery() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [selectedPool, setSelectedPool] = useState<Pool | null>(null);
+  const [modalTab, setModalTab] = useState<'liquidity' | 'vault'>('liquidity');
 
   const { data: pools, isLoading } = useQuery({
     queryKey: ['pools'],
@@ -77,7 +73,8 @@ export function PoolDiscovery() {
     return result;
   }, [pools, filters]);
 
-  const toggleFavorite = (poolId: string) => {
+  const toggleFavorite = (poolId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     setFavorites(prev => {
       const next = new Set(prev);
       if (next.has(poolId)) {
@@ -89,211 +86,703 @@ export function PoolDiscovery() {
     });
   };
 
-  const totalTvl = filteredPools.reduce((sum, p) => sum + p.tvlUsd, 0);
-  const avgApr = filteredPools.length ? filteredPools.reduce((sum, p) => sum + p.apr, 0) / filteredPools.length : 0;
+  const handleSort = (column: SortBy) => {
+    setFilters(prev => ({
+      ...prev,
+      sortBy: column,
+      sortOrder: prev.sortBy === column && prev.sortOrder === 'desc' ? 'asc' : 'desc',
+    }));
+  };
 
-  return (
-    <div className="pool-discovery">
-      <div className="page-header">
-        <div>
-          <h1>Pool Discovery</h1>
-          <p>Explore and compare liquidity pools to find the best opportunities</p>
-        </div>
-        <div className="header-stats">
-          <div className="header-stat"><span className="label">Total TVL</span><span className="value mono">{formatCurrency(totalTvl, { compact: true })}</span></div>
-          <div className="header-stat"><span className="label">Avg APR</span><span className="value mono status-positive">{avgApr.toFixed(1)}%</span></div>
-          <div className="header-stat"><span className="label">Pools</span><span className="value mono">{filteredPools.length}</span></div>
-        </div>
-      </div>
+  const openModal = (pool: Pool, tab: 'liquidity' | 'vault') => {
+    setSelectedPool(pool);
+    setModalTab(tab);
+  };
 
-      <Card className="filters-card glass-card">
-        <CardContent className="filters-content">
-          <div className="search-row">
-            <div className="search-wrapper">
-              <Search className="search-icon" size={18} />
-              <Input placeholder="Search by token..." value={filters.query} onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))} className="search-input" />
-            </div>
-            <div className="sort-wrapper">
-              <Select
-                value={filters.sortBy}
-                onValueChange={(value: string) =>
-                  setFilters(prev => ({ ...prev, sortBy: value as SortBy }))
-                }
-              >
-                <SelectTrigger className="sort-trigger"><SelectValue placeholder="Sort by" /></SelectTrigger>
-                <SelectContent>{SORT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
-              </Select>
-              <Button variant="outline" size="icon" className="sort-order-btn" onClick={() => setFilters(prev => ({ ...prev, sortOrder: prev.sortOrder === 'desc' ? 'asc' : 'desc' }))}>
-                <ArrowUpDown size={16} />
-              </Button>
-            </div>
-            <Button variant="outline" className="filter-toggle" onClick={() => setShowFilters(!showFilters)}>
-              <Filter size={16} /><span>Filters</span><ChevronDown size={14} className={showFilters ? 'rotate-180' : ''} />
-            </Button>
-          </div>
-          {showFilters && (
-            <div className="advanced-filters">
-              <div className="filter-group"><label>Min TVL</label><Input type="number" placeholder="0" value={filters.minTvl || ''} onChange={(e) => setFilters(prev => ({ ...prev, minTvl: e.target.value ? Number(e.target.value) : undefined }))} /></div>
-              <div className="filter-group"><label>Min APR %</label><Input type="number" placeholder="0" value={filters.minApr || ''} onChange={(e) => setFilters(prev => ({ ...prev, minApr: e.target.value ? Number(e.target.value) : undefined }))} /></div>
-              <div className="filter-group"><label>Min Volume</label><Input type="number" placeholder="0" value={filters.minVolume || ''} onChange={(e) => setFilters(prev => ({ ...prev, minVolume: e.target.value ? Number(e.target.value) : undefined }))} /></div>
-              <Button variant="ghost" onClick={() => setFilters({ query: '', sortBy: 'tvl', sortOrder: 'desc' })}>Clear All</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="pools-list">
-        {isLoading ? Array.from({ length: 5 }).map((_, i) => <PoolCardSkeleton key={i} />) :
-         filteredPools.length === 0 ? <div className="empty-state"><p>No pools match your filters</p></div> :
-         filteredPools.map((pool, index) => <PoolCard key={pool.id} pool={pool} rank={index + 1} isFavorite={favorites.has(pool.id)} onToggleFavorite={() => toggleFavorite(pool.id)} />)}
-      </div>
-
-      <style>{`
-        .pool-discovery { display: flex; flex-direction: column; gap: 24px; animation: fadeIn 0.4s ease-out; }
-        .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 24px; }
-        .page-header h1 { font-size: 28px; font-weight: 700; color: #E8E8EC; margin-bottom: 4px; }
-        .page-header p { color: #808090; font-size: 14px; }
-        .header-stats { display: flex; gap: 24px; }
-        .header-stat { display: flex; flex-direction: column; gap: 4px; padding: 12px 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; }
-        .header-stat .label { font-size: 11px; color: #606070; text-transform: uppercase; letter-spacing: 0.5px; }
-        .header-stat .value { font-size: 18px; font-weight: 600; color: #E8E8EC; }
-        .filters-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); }
-        .filters-content { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-        .search-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .search-wrapper { position: relative; flex: 1; min-width: 250px; }
-        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #606070; }
-        .search-input { padding-left: 44px; height: 44px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px; color: #E8E8EC; }
-        .sort-wrapper { display: flex; gap: 8px; }
-        .sort-trigger { width: 140px; height: 44px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-        .sort-order-btn { height: 44px; width: 44px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-        .filter-toggle { height: 44px; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-        .advanced-filters { display: flex; gap: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.04); flex-wrap: wrap; align-items: flex-end; }
-        .filter-group { display: flex; flex-direction: column; gap: 6px; }
-        .filter-group label { font-size: 12px; color: #808090; }
-        .filter-group input { width: 140px; height: 40px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); }
-        .pools-list { display: flex; flex-direction: column; gap: 12px; }
-        .empty-state { text-align: center; padding: 60px 20px; color: #606070; }
-        .rotate-180 { transform: rotate(180deg); }
-        @media (max-width: 768px) { .header-stats { flex-wrap: wrap; } .search-row { flex-direction: column; } .search-wrapper { width: 100%; } }
-      `}</style>
-    </div>
-  );
-}
-
-function PoolCard({ pool, rank, isFavorite, onToggleFavorite }: { pool: Pool; rank: number; isFavorite: boolean; onToggleFavorite: () => void }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'liquidity' | 'vault'>('liquidity');
-
-  const openModal = (tab: 'liquidity' | 'vault') => {
-    setActiveTab(tab);
-    setIsModalOpen(true);
+  const SortIcon = ({ column }: { column: SortBy }) => {
+    if (filters.sortBy !== column) return <ArrowUpDown size={14} className="sort-icon" />;
+    return filters.sortOrder === 'desc' 
+      ? <ArrowDown size={14} className="sort-icon active" /> 
+      : <ArrowUp size={14} className="sort-icon active" />;
   };
 
   return (
-    <div className="pool-card glass-card glass-card-hover">
-      <div className="pool-rank">#{rank}</div>
-      <button className={`favorite-btn ${isFavorite ? 'active' : ''}`} onClick={onToggleFavorite}><Star size={16} fill={isFavorite ? '#FFE66D' : 'none'} /></button>
-      <div className="pool-tokens">
-        <div className="token-pair">
-          <img src={getTokenLogo(pool.tokenA.symbol)} alt={pool.tokenA.symbol} className="token-icon" />
-          <img src={getTokenLogo(pool.tokenB.symbol)} alt={pool.tokenB.symbol} className="token-icon overlap" />
+    <div className="pool-discovery">
+      {/* Header */}
+      <div className="page-header">
+        <div>
+          <h1>Pool Discovery</h1>
+          <p>Find the best liquidity pools and start earning</p>
         </div>
-        <div className="pool-info">
-          <span className="pool-name">{pool.tokenA.symbol}/{pool.tokenB.symbol}</span>
-          <Badge variant="secondary" className="fee-badge">{getFeeLabel(pool.fee)}</Badge>
+        <div className="header-stats">
+          <div className="header-stat">
+            <span className="label">Total Pools</span>
+            <span className="value">{filteredPools.length}</span>
+          </div>
         </div>
-      </div>
-      <div className="pool-stats">
-        <div className="stat-item"><span className="stat-label">TVL</span><span className="stat-value mono">{formatCurrency(pool.tvlUsd, { compact: true })}</span></div>
-        <div className="stat-item"><span className="stat-label">24h Volume</span><span className="stat-value mono">{formatCurrency(pool.volume24h, { compact: true })}</span></div>
-        <div className="stat-item"><span className="stat-label">24h Fees</span><span className="stat-value mono">{formatCurrency(pool.fees24h, { compact: true })}</span></div>
-        <div className="stat-item highlight"><span className="stat-label">APR</span><span className="stat-value mono status-positive">{pool.apr.toFixed(1)}%</span></div>
-      </div>
-      <div className="pool-actions">
-        <button className="action-btn" onClick={() => openModal('liquidity')}><Plus size={14} /><span>Add Position</span></button>
       </div>
 
-      {/* Combined Modal with Tabs - rendered via portal to avoid z-index issues */}
-      {isModalOpen && createPortal(
-        <div className="modal-overlay" onClick={() => setIsModalOpen(false)}>
-          <div className="combined-modal" onClick={e => e.stopPropagation()}>
+      {/* Search & Filters */}
+      <div className="search-section">
+        <div className="search-bar">
+          <Search size={18} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search by token name or symbol..."
+            value={filters.query}
+            onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
+            className="search-input"
+          />
+          {filters.query && (
+            <button className="clear-btn" onClick={() => setFilters(prev => ({ ...prev, query: '' }))}>
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        <button 
+          className={`filter-btn ${showFilters ? 'active' : ''}`}
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <Filter size={16} />
+          <span>Filters</span>
+          <ChevronDown size={14} className={showFilters ? 'rotated' : ''} />
+        </button>
+      </div>
+
+      {/* Advanced Filters */}
+      {showFilters && (
+        <div className="filters-panel animate-slide-down">
+          <div className="filter-group">
+            <label>Min TVL</label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={filters.minTvl || ''}
+              onChange={(e) => setFilters(prev => ({ 
+                ...prev, 
+                minTvl: e.target.value ? Number(e.target.value) : undefined 
+              }))}
+            />
+          </div>
+          <div className="filter-group">
+            <label>Min APR %</label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={filters.minApr || ''}
+              onChange={(e) => setFilters(prev => ({ 
+                ...prev, 
+                minApr: e.target.value ? Number(e.target.value) : undefined 
+              }))}
+            />
+          </div>
+          <div className="filter-group">
+            <label>Min Volume 24h</label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={filters.minVolume || ''}
+              onChange={(e) => setFilters(prev => ({ 
+                ...prev, 
+                minVolume: e.target.value ? Number(e.target.value) : undefined 
+              }))}
+            />
+          </div>
+          <Button
+            variant="ghost"
+            onClick={() => setFilters({ query: filters.query, sortBy: 'tvl', sortOrder: 'desc' })}
+            className="clear-filters-btn"
+          >
+            Clear Filters
+          </Button>
+        </div>
+      )}
+
+      {/* Pool Table */}
+      <div className="pools-table-container">
+        <table className="pools-table">
+          <thead>
+            <tr>
+              <th className="col-favorite"></th>
+              <th className="col-pool">Pool</th>
+              <th className="col-tvl sortable" onClick={() => handleSort('tvl')}>
+                TVL <SortIcon column="tvl" />
+              </th>
+              <th className="col-volume sortable" onClick={() => handleSort('volume')}>
+                Volume 24h <SortIcon column="volume" />
+              </th>
+              <th className="col-fees sortable" onClick={() => handleSort('fees')}>
+                Fees 24h <SortIcon column="fees" />
+              </th>
+              <th className="col-apr sortable" onClick={() => handleSort('apr')}>
+                APR <SortIcon column="apr" />
+              </th>
+              <th className="col-actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i}>
+                  <td><Skeleton className="h-4 w-4" /></td>
+                  <td><Skeleton className="h-10 w-48" /></td>
+                  <td><Skeleton className="h-5 w-20" /></td>
+                  <td><Skeleton className="h-5 w-20" /></td>
+                  <td><Skeleton className="h-5 w-16" /></td>
+                  <td><Skeleton className="h-6 w-14" /></td>
+                  <td><Skeleton className="h-8 w-24" /></td>
+                </tr>
+              ))
+            ) : filteredPools.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="empty-cell">
+                  <div className="empty-state">
+                    <p>No pools match your filters</p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              filteredPools.map((pool) => (
+                <tr key={pool.id}>
+                  <td>
+                    <button 
+                      className={`favorite-btn ${favorites.has(pool.id) ? 'active' : ''}`}
+                      onClick={(e) => toggleFavorite(pool.id, e)}
+                    >
+                      <Star size={16} fill={favorites.has(pool.id) ? 'currentColor' : 'none'} />
+                    </button>
+                  </td>
+                  <td>
+                    <div className="pool-cell">
+                      <div className="token-pair">
+                        <img src={getTokenLogo(pool.tokenA.symbol)} alt="" className="token-icon" />
+                        <img src={getTokenLogo(pool.tokenB.symbol)} alt="" className="token-icon overlap" />
+                      </div>
+                      <div className="pool-info">
+                        <span className="pool-name">{pool.tokenA.symbol}/{pool.tokenB.symbol}</span>
+                        <span className="pool-fee">{getFeeLabel(pool.fee)}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="mono">{formatCurrency(pool.tvlUsd, { compact: true })}</td>
+                  <td className="mono">{formatCurrency(pool.volume24h, { compact: true })}</td>
+                  <td className="mono">{formatCurrency(pool.fees24h, { compact: true })}</td>
+                  <td>
+                    <span className="apr-badge">{pool.apr.toFixed(1)}%</span>
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button className="action-btn primary" onClick={() => openModal(pool, 'liquidity')}>
+                        <Plus size={14} />
+                        Add LP
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {selectedPool && createPortal(
+        <div className="modal-overlay" onClick={() => setSelectedPool(null)}>
+          <div className="pool-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-tabs">
               <button
-                className={`modal-tab ${activeTab === 'liquidity' ? 'active' : ''}`}
-                onClick={() => setActiveTab('liquidity')}
+                className={`modal-tab ${modalTab === 'liquidity' ? 'active' : ''}`}
+                onClick={() => setModalTab('liquidity')}
               >
                 <Plus size={16} />
                 Add Liquidity
               </button>
               <button
-                className={`modal-tab vault ${activeTab === 'vault' ? 'active' : ''}`}
-                onClick={() => setActiveTab('vault')}
+                className={`modal-tab vault ${modalTab === 'vault' ? 'active' : ''}`}
+                onClick={() => setModalTab('vault')}
               >
                 <Vault size={16} />
                 Create Vault
               </button>
             </div>
-            <div className="modal-content-wrapper">
-              {activeTab === 'liquidity' ? (
+            <div className="modal-body">
+              {modalTab === 'liquidity' ? (
                 <AddLiquidityModal
-                  pool={pool}
+                  pool={selectedPool}
                   isOpen={true}
-                  onClose={() => setIsModalOpen(false)}
+                  onClose={() => setSelectedPool(null)}
                   embedded={true}
                 />
               ) : (
                 <CreateVaultModal
-                  pool={pool}
+                  pool={selectedPool}
                   isOpen={true}
-                  onClose={() => setIsModalOpen(false)}
+                  onClose={() => setSelectedPool(null)}
                   embedded={true}
                 />
               )}
             </div>
-            <style>{`
-              .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 99999; }
-              .combined-modal { background: #12121A; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; width: 90%; max-width: 520px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
-              .modal-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); }
-              .modal-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; background: transparent; border: none; color: #808090; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; position: relative; }
-              .modal-tab:hover { color: #E8E8EC; background: rgba(255,255,255,0.03); }
-              .modal-tab.active { color: #00D4AA; background: rgba(0,212,170,0.08); }
-              .modal-tab.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, #00D4AA, #00A3FF); }
-              .modal-tab.vault.active { color: #9333EA; background: rgba(147,51,234,0.08); }
-              .modal-tab.vault.active::after { background: linear-gradient(90deg, #9333EA, #7C3AED); }
-              .modal-content-wrapper { flex: 1; overflow-y: auto; }
-            `}</style>
           </div>
         </div>,
         document.body
       )}
 
       <style>{`
-        .pool-card { display: flex; align-items: center; gap: 16px; padding: 16px 20px; position: relative; }
-        .pool-rank { position: absolute; left: -8px; top: 50%; transform: translateY(-50%); background: linear-gradient(135deg, #00D4AA, #00A3FF); color: #0A0A0F; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
-        .favorite-btn { background: none; border: none; padding: 8px; cursor: pointer; color: #606070; transition: all 0.2s; }
-        .favorite-btn:hover, .favorite-btn.active { color: #FFE66D; }
-        .pool-tokens { display: flex; align-items: center; gap: 12px; min-width: 200px; }
-        .token-pair { display: flex; }
-        .token-icon { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #1a1a2e; }
-        .token-icon.overlap { margin-left: -12px; }
-        .pool-info { display: flex; flex-direction: column; gap: 4px; }
-        .pool-name { font-size: 15px; font-weight: 600; color: #E8E8EC; }
-        .fee-badge { background: rgba(255,255,255,0.05); color: #A0A0B0; font-size: 11px; }
-        .pool-stats { display: flex; gap: 32px; flex: 1; justify-content: center; }
-        .stat-item { display: flex; flex-direction: column; gap: 2px; min-width: 80px; }
-        .stat-item.highlight { background: rgba(0,212,170,0.08); padding: 8px 12px; border-radius: 8px; margin: -8px 0; }
-        .stat-label { font-size: 11px; color: #606070; }
-        .stat-value { font-size: 14px; font-weight: 600; color: #E8E8EC; }
-        .pool-actions { display: flex; gap: 8px; }
-        .action-btn { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: linear-gradient(135deg, #00D4AA, #00A3FF); color: #0A0A0F; font-size: 13px; font-weight: 600; border-radius: 10px; text-decoration: none; transition: all 0.3s; border: none; cursor: pointer; }
-        .action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,212,170,0.3); }
+        .pool-discovery {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
 
-        @media (max-width: 1024px) { .pool-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; } .pool-card { flex-wrap: wrap; } }
+        /* Header */
+        .page-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          gap: 24px;
+        }
+
+        .page-header h1 {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text-primary);
+          margin-bottom: 4px;
+        }
+
+        .page-header p {
+          font-size: 14px;
+          color: var(--text-muted);
+        }
+
+        .header-stats {
+          display: flex;
+          gap: 16px;
+        }
+
+        .header-stat {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 12px 20px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+        }
+
+        .header-stat .label {
+          font-size: 12px;
+          color: var(--text-muted);
+          text-transform: uppercase;
+        }
+
+        .header-stat .value {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--text-primary);
+        }
+
+        /* Search Section */
+        .search-section {
+          display: flex;
+          gap: 12px;
+        }
+
+        .search-bar {
+          flex: 1;
+          position: relative;
+        }
+
+        .search-icon {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--text-dim);
+        }
+
+        .search-input {
+          width: 100%;
+          height: 48px;
+          padding: 0 48px 0 48px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          color: var(--text-primary);
+          font-size: 15px;
+          transition: all var(--transition-base);
+        }
+
+        .search-input:focus {
+          outline: none;
+          border-color: var(--accent-teal);
+          box-shadow: 0 0 0 3px rgba(20, 244, 201, 0.1);
+        }
+
+        .search-input::placeholder {
+          color: var(--text-dim);
+        }
+
+        .clear-btn {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          cursor: pointer;
+          padding: 4px;
+        }
+
+        .clear-btn:hover {
+          color: var(--text-primary);
+        }
+
+        .filter-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          height: 48px;
+          padding: 0 20px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          color: var(--text-secondary);
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all var(--transition-base);
+        }
+
+        .filter-btn:hover, .filter-btn.active {
+          border-color: var(--border-hover);
+          color: var(--text-primary);
+        }
+
+        .filter-btn .rotated {
+          transform: rotate(180deg);
+        }
+
+        /* Filters Panel */
+        .filters-panel {
+          display: flex;
+          gap: 16px;
+          padding: 20px;
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          flex-wrap: wrap;
+          align-items: flex-end;
+        }
+
+        .filter-group {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .filter-group label {
+          font-size: 12px;
+          color: var(--text-muted);
+          font-weight: 500;
+        }
+
+        .filter-group input {
+          width: 140px;
+        }
+
+        .clear-filters-btn {
+          margin-left: auto;
+        }
+
+        /* Table */
+        .pools-table-container {
+          background: var(--bg-card);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+        }
+
+        .pools-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        .pools-table th {
+          padding: 14px 16px;
+          text-align: left;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          background: var(--bg-elevated);
+          border-bottom: 1px solid var(--border-default);
+          position: sticky;
+          top: 0;
+          z-index: 1;
+        }
+
+        .pools-table th.sortable {
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .pools-table th.sortable:hover {
+          color: var(--text-primary);
+        }
+
+        .sort-icon {
+          margin-left: 4px;
+          opacity: 0.4;
+          vertical-align: middle;
+        }
+
+        .sort-icon.active {
+          opacity: 1;
+          color: var(--accent-teal);
+        }
+
+        .pools-table td {
+          padding: 16px;
+          border-bottom: 1px solid var(--border-default);
+          font-size: 14px;
+          color: var(--text-primary);
+        }
+
+        .pools-table tbody tr {
+          transition: background var(--transition-fast);
+        }
+
+        .pools-table tbody tr:hover {
+          background: var(--bg-hover);
+        }
+
+        .pools-table tbody tr:last-child td {
+          border-bottom: none;
+        }
+
+        .col-favorite {
+          width: 48px;
+        }
+
+        .col-pool {
+          min-width: 200px;
+        }
+
+        .col-actions {
+          width: 140px;
+        }
+
+        .empty-cell {
+          text-align: center;
+          padding: 48px !important;
+        }
+
+        /* Favorite Button */
+        .favorite-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          background: transparent;
+          border: none;
+          color: var(--text-dim);
+          cursor: pointer;
+          border-radius: var(--radius-sm);
+          transition: all var(--transition-fast);
+        }
+
+        .favorite-btn:hover, .favorite-btn.active {
+          color: #fbbf24;
+        }
+
+        /* Pool Cell */
+        .pool-cell {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .token-pair {
+          display: flex;
+        }
+
+        .token-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: 2px solid var(--bg-card);
+        }
+
+        .token-icon.overlap {
+          margin-left: -10px;
+        }
+
+        .pool-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+
+        .pool-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-primary);
+        }
+
+        .pool-fee {
+          font-size: 12px;
+          color: var(--text-muted);
+        }
+
+        /* APR Badge */
+        .apr-badge {
+          display: inline-block;
+          padding: 5px 12px;
+          background: var(--color-profit-bg);
+          color: var(--color-profit);
+          border-radius: var(--radius-full);
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+          display: flex;
+          gap: 8px;
+        }
+
+        .action-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          border-radius: var(--radius-md);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-base);
+          border: none;
+        }
+
+        .action-btn.primary {
+          background: var(--gradient-primary);
+          color: #09090b;
+        }
+
+        .action-btn.primary:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-glow-teal);
+        }
+
+        /* Modal */
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.8);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+
+        .pool-modal {
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-default);
+          border-radius: var(--radius-xl);
+          width: 90%;
+          max-width: 520px;
+          max-height: 90vh;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .modal-tabs {
+          display: flex;
+          border-bottom: 1px solid var(--border-default);
+        }
+
+        .modal-tab {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 16px;
+          background: transparent;
+          border: none;
+          color: var(--text-muted);
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all var(--transition-fast);
+          position: relative;
+        }
+
+        .modal-tab:hover {
+          color: var(--text-primary);
+          background: var(--bg-hover);
+        }
+
+        .modal-tab.active {
+          color: var(--accent-teal);
+          background: rgba(20, 244, 201, 0.08);
+        }
+
+        .modal-tab.active::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: var(--gradient-primary);
+        }
+
+        .modal-tab.vault.active {
+          color: var(--accent-purple);
+          background: rgba(168, 85, 247, 0.08);
+        }
+
+        .modal-tab.vault.active::after {
+          background: var(--gradient-accent);
+        }
+
+        .modal-body {
+          flex: 1;
+          overflow-y: auto;
+        }
+
+        @media (max-width: 768px) {
+          .page-header {
+            flex-direction: column;
+          }
+          
+          .search-section {
+            flex-direction: column;
+          }
+          
+          .filters-panel {
+            flex-direction: column;
+          }
+          
+          .filter-group input {
+            width: 100%;
+          }
+          
+          .pools-table-container {
+            overflow-x: auto;
+          }
+          
+          .pools-table {
+            min-width: 700px;
+          }
+        }
       `}</style>
     </div>
   );
-}
-
-function PoolCardSkeleton() {
-  return <div className="pool-card glass-card"><Skeleton className="h-12 w-12 rounded-full" /><Skeleton className="h-6 w-32" /><Skeleton className="h-6 w-24" /><Skeleton className="h-6 w-24" /><Skeleton className="h-6 w-24" /></div>;
 }

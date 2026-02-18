@@ -9,8 +9,7 @@ import { MyVaults } from '@/components/MyVaults';
 import { LPRegistry } from '@/components/LPRegistry';
 import { RangeAnalytics } from '@/components/RangeAnalytics';
 import { Backtesting } from '@/components/Backtesting';
-import { Header } from '@/components/Header';
-import { Sidebar } from '@/components/Sidebar';
+import { Navbar } from '@/components/Navbar';
 import { WalletProvider } from '@/contexts/WalletContext';
 import { AutoCloseProvider } from '@/contexts/AutoCloseContext';
 import './App.css';
@@ -24,11 +23,10 @@ const queryClient = new QueryClient({
   },
 });
 
-type View = 'dashboard' | 'pools' | 'positions' | 'leaderboard' | 'vaults' | 'lp-registry' | 'range-analytics' | 'backtesting';
+export type View = 'dashboard' | 'pools' | 'positions' | 'leaderboard' | 'vaults' | 'lp-registry' | 'range-analytics' | 'backtesting';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const renderView = () => {
     switch (currentView) {
@@ -57,20 +55,23 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <WalletProvider>
         <AutoCloseProvider>
-          <div className="app-container">
-            <Sidebar
-              isOpen={sidebarOpen}
-              currentView={currentView}
-              onViewChange={setCurrentView}
-              onToggle={() => setSidebarOpen(!sidebarOpen)}
-            />
-            <div className={`main-content ${sidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-              <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-              <main className="content-area">
+          <div className="app-layout">
+            <Navbar currentView={currentView} onViewChange={setCurrentView} />
+            <main className="main-content">
+              <div className="content-container animate-fade-in-up">
                 {renderView()}
-              </main>
-            </div>
-            <Toaster position="bottom-right" />
+              </div>
+            </main>
+            <Toaster 
+              position="bottom-right" 
+              toastOptions={{
+                style: {
+                  background: '#111113',
+                  border: '1px solid #1c1c1f',
+                  color: '#fafafa',
+                },
+              }}
+            />
           </div>
         </AutoCloseProvider>
       </WalletProvider>
